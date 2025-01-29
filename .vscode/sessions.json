@@ -1,0 +1,40 @@
+{
+    "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v10/terminal-keeper.json",
+    "theme": "tribe",
+    "active": "default",
+    "activateOnStartup": true,
+    "keepExistingTerminals": false,
+    "sessions": {
+        "default": [
+            [
+                {
+                    "name": "node:1",
+                    "autoExecuteCommands": true,
+                    "commands": [
+                        "NODE_PORT=3001 P2P_PORT=6001 npm start"
+                    ]
+                },
+                {
+                    "name": "node:2",
+                    "autoExecuteCommands": true,
+                    "commands": [
+                        "NODE_PORT=3002 P2P_PORT=6002 npm start"
+                    ]
+                },
+                {
+                    "name": "node:3",
+                    "autoExecuteCommands": true,
+                    "commands": [
+                        "NODE_PORT=3003 P2P_PORT=6003 npm start"
+                    ]
+                },
+                {
+                    "name": "node:manager",
+                    "commands": [
+                        "curl http://localhost:3001/peers"
+                    ]
+                }
+            ]
+        ]
+    }
+}
