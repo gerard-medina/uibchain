@@ -14,8 +14,16 @@ app.get("/blocks", (req, res) => {
 })
 
 app.post("/mineBlock", (req, res) => {
+    if (req.body.data == null) {
+        res.send('Missing data param');
+        return;
+    }
     const newBlock = generateNextBlock(req.body.data);
-    res.send(newBlock);
+    if (newBlock === null) {
+        res.status(400).send('Invalid block');
+    } else {
+        res.send(newBlock);
+    }
 })
 
 app.get("/peers", (req, res) => {

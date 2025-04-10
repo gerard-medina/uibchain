@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import { processTransactions } from './transaction.js'
 import { broadcastLast } from './p2p.js';
 
 class Block {
@@ -18,12 +19,14 @@ const genesisBlock = new Block(
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     '',
     1737832682,
-    'Genesis block',
+    [],
     0,
     0
 );
 
 let blockchain = [genesisBlock];
+
+let unspentTrOuts = [];
 
 const TIME_DIFFICULTY = 10;
 const BLOCKS_INTERVAL = 10;
@@ -76,9 +79,12 @@ function generateNextBlock(blockData) {
         blockData,
         difficulty
     );
-    addBlock(newBlock);
-    broadcastLast();
-    return newBlock;
+    if (addBlock(newBlock)) {
+        broadcastLast();
+        return newBlock;
+    } else {
+        return null;
+    }
 }
 
 function mineBlock(index, previousHash, timestamp, data, difficulty) {
@@ -103,8 +109,14 @@ function calculateBlockHash(block) {
 
 function addBlock(newBlock) {
     if (isValidNewBlock(newBlock, getLastBlock())) {
-        blockchain.push(newBlock);
-        return true;
+        const newTrOuts = processTransactions(newBlock.data, unspentTrOuts, newBlock.index);
+        if (newTrOuts === null) {
+            return false;
+        } else {
+            blockchain.push(newBlock);
+            unspentTrOuts = newTrOuts;
+            return true;
+        }
     }
     return false;
 }
@@ -129,7 +141,7 @@ function isValidBlockStructure(block) {
         typeof block.hash === 'string' &&
         typeof block.previousHash === 'string' &&
         typeof block.timestamp === 'number' &&
-        typeof block.data === 'string'
+        typeof block.data === 'object'
     );
 }
 
@@ -189,6 +201,24 @@ function hashMatchesDifficulty(hash, difficulty) {
     const prefix = '0'.repeat(difficulty);
     return hashInBinary.startsWith(prefix);
 }
+
+function hexToBinary (hex) {
+    let bin = '';
+    const map = {
+        '0': '0000', '1': '0001', '2': '0010', '3': '0011', '4': '0100',
+        '5': '0101', '6': '0110', '7': '0111', '8': '1000', '9': '1001',
+        'a': '1010', 'b': '1011', 'c': '1100', 'd': '1101',
+        'e': '1110', 'f': '1111'
+    };
+    for (let i = 0; i < hex.length; i = i + 1) {
+        if (map[hex[i]]) {
+            bin += map[hex[i]];
+        } else {
+            return null;
+        }
+    }
+    return bin;
+};
 
 function isValidChain(blockchainToValidate) {
     function isValidGenesis(block) {
