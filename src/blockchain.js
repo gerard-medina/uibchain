@@ -1,6 +1,7 @@
 import CryptoJS from 'crypto-js';
-import { processTransactions } from './transaction.js'
+import { processTransactions, getCoinbaseTransaction, isValidAddress } from './transaction.js'
 import { broadcastLast } from './p2p.js';
+import { createTransaction, getBalance, getPrivateFromWallet, getPublicFromWallet } from './wallet.js';
 
 class Block {
     constructor(index, hash, previousHash, timestamp, data, difficulty, nonce) {
@@ -66,7 +67,11 @@ function getNewDifficulty(lastBlock, auxBlockchain) {
     }
 }
 
-function generateNextBlock(blockData) {
+function getAccountBalance() {
+    return getBalance(getPublicFromWallet(), unspentTrOuts);
+};
+
+function generateRawNextBlock(blockData) {
     const previousBlock = getLastBlock();
     const nextIndex = previousBlock.index + 1;
     const nextTimestamp = getCurrentTimestamp();
@@ -86,6 +91,25 @@ function generateNextBlock(blockData) {
         return null;
     }
 }
+
+function generateNextBlockWithTransaction(receiverAddress, amount) {
+    if (!isValidAddress(receiverAddress)) {
+        throw Error('Invalid address');
+    }
+    if (typeof amount !== 'number') {
+        throw Error('Invalid amount');
+    }
+    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
+    const tr = createTransaction(receiverAddress, amount, getPrivateFromWallet(), unspentTrOuts);
+    const blockData = [coinbaseTr, tr];
+    return generateRawNextBlock(blockData);
+};
+
+function generateNextBlock() {
+    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
+    const blockData = [coinbaseTr];
+    return generateRawNextBlock(blockData);
+};
 
 function mineBlock(index, previousHash, timestamp, data, difficulty) {
     let nonce = 0;
@@ -202,7 +226,7 @@ function hashMatchesDifficulty(hash, difficulty) {
     return hashInBinary.startsWith(prefix);
 }
 
-function hexToBinary (hex) {
+function hexToBinary(hex) {
     let bin = '';
     const map = {
         '0': '0000', '1': '0001', '2': '0010', '3': '0011', '4': '0100',
@@ -241,7 +265,10 @@ export {
     Block,
     getBlockchain,
     getLastBlock,
+    getAccountBalance,
     generateNextBlock,
+    generateRawNextBlock,
+    generateNextBlockWithTransaction,
     isValidBlockStructure,
     replaceChain,
     addBlock,

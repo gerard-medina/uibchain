@@ -135,7 +135,7 @@ function validateCoinbaseTr(transaction, blockIndex) {
         console.log('Invalid number of trOuts in coinbase transaction');
         return false;
     }
-    if (transaction.trOuts[0].amount != COINBASE_AMOUNT) {
+    if (transaction.trOuts[0].amount !== COINBASE_AMOUNT) {
         console.log('Invalid coinbase amount in coinbase transaction');
         return false;
     }
@@ -144,7 +144,7 @@ function validateCoinbaseTr(transaction, blockIndex) {
 
 function validateTrIn(trIn, transaction, unspentTrOuts) {
     const referencedUTrOut =
-        unspentTrOuts.find((uTrO) => uTrO.trOutId === trIn.trOutId && uTrO.trOutId === trIn.trOutId);
+        unspentTrOuts.find((uTrO) => uTrO.trOutId === trIn.trOutId && uTrO.trOutIndex === trIn.trOutIndex);
     if (referencedUTrOut == null) {
         console.log('Referenced trOut not found: ' + JSON.stringify(trIn));
         return false;
@@ -152,7 +152,12 @@ function validateTrIn(trIn, transaction, unspentTrOuts) {
     const address = referencedUTrOut.address;
 
     const key = ec.keyFromPublic(address, 'hex');
-    return key.verify(transaction.id, trIn.signature);
+    const validSignature = key.verify(transaction.id, trIn.signature);
+    if (!validSignature) {
+        console.log('Invalid trIn signature: %s trId: %s address: %s', trIn.signature, transaction.id, referencedUTrOut.address);
+        return false;
+    }
+    return true;
 };
 
 function getTrInAmount(trIn, unspentTrOuts) {
@@ -334,5 +339,6 @@ export {
     TrOut,
     getCoinbaseTransaction,
     getPublicKey,
-    Transaction
+    Transaction,
+    isValidAddress
 }
