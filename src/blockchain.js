@@ -1,7 +1,9 @@
 import CryptoJS from 'crypto-js';
 import { processTransactions, getCoinbaseTransaction, isValidAddress } from './transaction.js'
-import { broadcastLast } from './p2p.js';
-import { createTransaction, getBalance, getPrivateFromWallet, getPublicFromWallet } from './wallet.js';
+import { broadcastLast, broadCastTransactionPool } from './p2p.js';
+import { createTransaction, findUnspentTrOuts, getBalance, getPrivateFromWallet, getPublicFromWallet, } from './wallet.js';
+import { addToTransactionPool, getTransactionPool, updateTransactionPool } from './transactionPool.js';
+import _ from 'lodash';
 
 class Block {
     constructor(index, hash, previousHash, timestamp, data, difficulty, nonce) {
@@ -36,6 +38,12 @@ const BLOCKS_INTERVAL = 10;
 function getBlockchain() {
     return blockchain;
 }
+function getUnspentTrOuts() {
+    return _.cloneDeep(unspentTrOuts);
+}
+function getMyUnspentTrOuts() {
+    return findUnspentTrOuts(getPublicFromWallet(), getUnspentTrOuts());
+}
 function getLastBlock() {
     return blockchain[blockchain.length - 1];
 }
@@ -66,9 +74,20 @@ function getNewDifficulty(lastBlock, auxBlockchain) {
         return lastIntervalBlock.difficulty;
     }
 }
-
 function getAccountBalance() {
-    return getBalance(getPublicFromWallet(), unspentTrOuts);
+    return getBalance(getPublicFromWallet(), getUnspentTrOuts());
+};
+
+/////////// SETTERS
+function setUnspentTrOuts(newUnspentTrOuts) {
+    unspentTrOuts = newUnspentTrOuts;
+};
+
+function sendTransaction(address, amount) {
+    const tr = createTransaction(address, amount, getPrivateFromWallet(), getUnspentTrOuts(), getTransactionPool());
+    addToTransactionPool(tr, getUnspentTrOuts());
+    broadCastTransactionPool();
+    return tr;
 };
 
 function generateRawNextBlock(blockData) {
@@ -84,6 +103,7 @@ function generateRawNextBlock(blockData) {
         blockData,
         difficulty
     );
+    console.log('Mined');
     if (addBlock(newBlock)) {
         broadcastLast();
         return newBlock;
@@ -100,14 +120,14 @@ function generateNextBlockWithTransaction(receiverAddress, amount) {
         throw Error('Invalid amount');
     }
     const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
-    const tr = createTransaction(receiverAddress, amount, getPrivateFromWallet(), unspentTrOuts);
+    const tr = createTransaction(receiverAddress, amount, getPrivateFromWallet(), getUnspentTrOuts(), getTransactionPool());
     const blockData = [coinbaseTr, tr];
     return generateRawNextBlock(blockData);
 };
 
 function generateNextBlock() {
     const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
-    const blockData = [coinbaseTr];
+    const blockData = [coinbaseTr].concat(getTransactionPool());
     return generateRawNextBlock(blockData);
 };
 
@@ -133,12 +153,13 @@ function calculateBlockHash(block) {
 
 function addBlock(newBlock) {
     if (isValidNewBlock(newBlock, getLastBlock())) {
-        const newTrOuts = processTransactions(newBlock.data, unspentTrOuts, newBlock.index);
+        const newTrOuts = processTransactions(newBlock.data, getUnspentTrOuts(), newBlock.index);
         if (newTrOuts === null) {
             return false;
         } else {
             blockchain.push(newBlock);
-            unspentTrOuts = newTrOuts;
+            setUnspentTrOuts(newTrOuts);
+            updateTransactionPool(unspentTrOuts);
             return true;
         }
     }
@@ -146,17 +167,24 @@ function addBlock(newBlock) {
 }
 
 function replaceChain(newBlocks) {
+    const auxUnspentTrOuts = isValidChain(newBlocks);
     if (
-        isValidChain(newBlocks) &&
+        (auxUnspentTrOuts !== null) &&
         getAccumulatedDifficulty(newBlocks) > getAccumulatedDifficulty(getBlockchain())
     ) {
         console.log('Received blockchain is valid. Replacing current blockchain with received blockchain');
         blockchain = newBlocks;
+        setUnspentTrOuts(auxUnspentTrOuts);
+        updateTransactionPool(auxUnspentTrOuts);
         broadcastLast();
     } else {
         console.log('Received blockchain invalid');
     }
 }
+
+function addReceivedTransaction(transaction) {
+    addToTransactionPool(transaction, getUnspentTrOuts());
+};
 
 /////////// Validaciones
 function isValidBlockStructure(block) {
@@ -244,21 +272,32 @@ function hexToBinary(hex) {
     return bin;
 };
 
+// Valida todas las transacciones y todos los bloques de la cadena.
+// Devuelve las unspentTrOuts si es valida.
 function isValidChain(blockchainToValidate) {
     function isValidGenesis(block) {
         return JSON.stringify(block) === JSON.stringify(genesisBlock);
     }
 
     if (!isValidGenesis(blockchainToValidate[0])) {
-        return false;
+        return null;
     }
 
-    for (let i = 1; i < blockchainToValidate.length; i++) {
-        if (!isValidNewBlock(blockchainToValidate[i], blockchainToValidate[i - 1])) {
-            return false;
+    let auxUnspentTrOuts = [];
+
+    for (let i = 0; i < blockchainToValidate.length; i++) {
+        const currentBlock = blockchainToValidate[i];
+        if (i !== 0 && !isValidNewBlock(blockchainToValidate[i], blockchainToValidate[i - 1])) {
+            return null;
+        }
+
+        auxUnspentTrOuts = processTransactions(currentBlock.data, auxUnspentTrOuts, currentBlock.index);
+        if (auxUnspentTrOuts === null) {
+            console.log('Invalid transactions in blockchain');
+            return null;
         }
     }
-    return true;
+    return auxUnspentTrOuts;
 }
 
 export {
@@ -266,10 +305,14 @@ export {
     getBlockchain,
     getLastBlock,
     getAccountBalance,
+    getUnspentTrOuts,
+    getMyUnspentTrOuts,
+    sendTransaction,
     generateNextBlock,
     generateRawNextBlock,
     generateNextBlockWithTransaction,
     isValidBlockStructure,
     replaceChain,
     addBlock,
+    addReceivedTransaction
 };

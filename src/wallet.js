@@ -4,17 +4,16 @@ import _ from 'lodash';
 import { getPublicKey, getTransactionId, signTrIn, Transaction, TrIn, TrOut } from './transaction.js';
 
 const ec = new ecdsa.ec('secp256k1');
-const walletPath = 'wallet/';
+const walletPath = 'wallets/';
 
 function getPrivateFromWallet() {
-    const buffer = readFileSync(walletPath + 'private_key', 'utf8');
-    return buffer.toString();
+    const wallet = JSON.parse(readFileSync(walletPath + (process.env.USER_NAME || 'admin') + '.json', 'utf8'));
+    return wallet.private_key;
 };
 
 function getPublicFromWallet() {
-    const privateKey = getPrivateFromWallet();
-    const key = ec.keyFromPrivate(privateKey, 'hex');
-    return key.getPublic().encode('hex');
+    const wallet = JSON.parse(readFileSync(walletPath + (process.env.USER_NAME || 'admin') + '.json', 'utf8'));
+    return wallet.public_key;
 };
 
 function generatePrivateKey() {
@@ -23,23 +22,26 @@ function generatePrivateKey() {
     return privateKey.toString(16);
 };
 
-function initWallet() {
-    if (existsSync(walletPath + 'private_key')) {
+function initWallet(userName) {
+    if (existsSync(walletPath + userName + '.json')) {
         return;
     }
     const newPrivateKey = generatePrivateKey();
     const public_key = getPublicKey(newPrivateKey);
-
-    writeFileSync(walletPath + 'private_key', newPrivateKey);
-    writeFileSync(walletPath + 'public_key', public_key);
+    const keys = JSON.stringify({ public_key: public_key, private_key: newPrivateKey });
+    writeFileSync(walletPath + userName + '.json', keys);
     console.log('New wallet created, public key: ' + public_key);
 };
 
 function getBalance(address, unspentTrOuts) {
-    return _(unspentTrOuts)
+    return _(findUnspentTrOuts(address, unspentTrOuts))
         .filter((unspentTrOut) => unspentTrOut.address === address)
         .map((unspentTrOut) => unspentTrOut.amount)
         .sum();
+};
+
+function findUnspentTrOuts(address, unspentTrOuts) {
+    return _.filter(unspentTrOuts, (uTrO) => uTrO.address === address);
 };
 
 function findTrOutsForAmount(amount, myUnspentTrOuts) {
@@ -66,21 +68,39 @@ function createTrOuts(receiverAddress, myAddress, amount, leftOverAmount) {
     }
 };
 
-function toUnsignedTrIn(unspentTrOut) { //TODO: pasar a funcio dins es map
-    const trIn = new TrIn();
-    trIn.trOutId = unspentTrOut.trOutId;
-    trIn.trOutIndex = unspentTrOut.trOutIndex;
-    return trIn;
+// Sacar los unspentOutputs cuyos inputs ya estan en la pool
+function filterPoolExistingTrIns(unspentTrOuts, pool) {
+    const trIns = _(pool)
+        .map((tr) => tr.trIns)
+        .flatten()
+        .value();
+    const removable = [];
+    for (const unspentTrOut of unspentTrOuts) {
+        const trIn = _.find(trIns, (auxTrIn) => {
+            return auxTrIn.trOutIndex === unspentTrOut.trOutIndex && auxTrIn.trOutId === unspentTrOut.trOutId;
+        });
+
+        if (trIn !== undefined) {
+            removable.push(unspentTrOut);
+        }
+    }
+    return _.without(unspentTrOuts, ...removable);
 };
 
-function createTransaction(receiverAddress, amount, privateKey, unspentTrOuts) {
+function createTransaction(receiverAddress, amount, privateKey, unspentTrOuts, pool) {
 
     const myAddress = getPublicKey(privateKey);
-    const myUnspentTrOuts = unspentTrOuts.filter((unspentTrOut) => unspentTrOut.address === myAddress);
+    const auxMyUnspentTrOuts = unspentTrOuts.filter((unspentTrOut) => unspentTrOut.address === myAddress);
+    const myUnspentTrOuts = filterPoolExistingTrIns(auxMyUnspentTrOuts, pool);
 
     const { includedUnspentTrOuts, leftOverAmount } = findTrOutsForAmount(amount, myUnspentTrOuts);
 
-    const unsignedTrIns = includedUnspentTrOuts.map(toUnsignedTrIn);
+    const unsignedTrIns = includedUnspentTrOuts.map(unspentTrOut => {
+        const trIn = new TrIn();
+        trIn.trOutId = unspentTrOut.trOutId;
+        trIn.trOutIndex = unspentTrOut.trOutIndex;
+        return trIn;
+    });
 
     const tr = new Transaction();
     tr.trIns = unsignedTrIns;
@@ -101,5 +121,6 @@ export {
     getPrivateFromWallet,
     getBalance,
     generatePrivateKey,
-    initWallet
+    initWallet,
+    findUnspentTrOuts
 };

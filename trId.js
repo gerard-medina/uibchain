@@ -1,2 +1,2 @@
 import CryptoJS from 'crypto-js';
-console.log(CryptoJS.SHA256('2' + '04eed6b2e9c522cf80b6c1c5247fa1035b8ad01e2df8de4439e84d03212561de1b8b10f96e57ee9049e06eb1319f12853e6c26ba7a8ed973fecf865959619d46f0' + '50').toString())
+console.log(CryptoJS.SHA256('0' + '04044486c81a22dd9199ac1d7ea454fae51b03b0077158d8d8563fa9f76ea6702ba93aa6af344946480e3521a0038c4ecab4e88f215e1a6181354c35fb9ee50ac0' + '50').toString())

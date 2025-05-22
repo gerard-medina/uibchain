@@ -47,6 +47,9 @@ function getTransactionId(transaction) {
 };
 
 function validateTransaction(transaction, unspentTrOuts) {
+    if (!isValidTransactionStructure(transaction)) {
+        return false;
+    }
 
     if (getTransactionId(transaction) !== transaction.id) {
         console.log('Invalid tr id: ' + transaction.id);
@@ -223,11 +226,6 @@ function updateUnspentTrOuts(newTransactions, unspentTrOuts) {
 };
 
 function processTransactions(trs, unspentTrOuts, blockIndex) {
-
-    if (!isValidTransactionsStructure(trs)) {
-        return null;
-    }
-
     if (!validateBlockTransactions(trs, unspentTrOuts, blockIndex)) {
         console.log('Invalid block transactions');
         return null;
@@ -279,12 +277,6 @@ function isValidTrOutStructure(trOut) {
     } else {
         return true;
     }
-};
-
-function isValidTransactionsStructure(transactions) {
-    return transactions
-        .map(isValidTransactionStructure)
-        .reduce((a, b) => (a && b), true);
 };
 
 function isValidTransactionStructure(transaction) {
@@ -340,5 +332,7 @@ export {
     getCoinbaseTransaction,
     getPublicKey,
     Transaction,
-    isValidAddress
+    isValidAddress,
+    validateTransaction,
+    hasDuplicates
 }

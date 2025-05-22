@@ -1,12 +1,17 @@
 import bodyParser from "body-parser";
 import express from "express";
-import { generateRawNextBlock, generateNextBlock, generateNextBlockWithTransaction, getAccountBalance, getBlockchain } from "./blockchain.js";
+import {
+    generateRawNextBlock, generateNextBlock, generateNextBlockWithTransaction, getAccountBalance,
+    getBlockchain, getMyUnspentTrOuts, getUnspentTrOuts, sendTransaction
+} from "./blockchain.js";
 import { connectToPeers, getSockets, initP2PServer } from "./p2p.js";
-import { initWallet } from './wallet.js';
+import { initWallet, getPublicFromWallet } from './wallet.js';
+import { getTransactionPool } from "./transactionPool.js";
 
 const NODE_PORT = parseInt(process.env.NODE_PORT) || 3001;
 const P2P_PORT = parseInt(process.env.P2P_PORT) || 6001;
 const initPeer = process.env.PEER || null;
+const userName = process.env.USER_NAME || 'admin';
 const app = express();
 
 app.use(bodyParser.json());
@@ -14,6 +19,22 @@ app.use(bodyParser.json());
 app.use((err, req, res, next) => {
     if (err) {
         res.status(400).send(err.message);
+    }
+});
+
+app.post('/sendTransaction', (req, res) => {
+    try {
+        const address = req.body.address;
+        const amount = req.body.amount;
+
+        if (address === undefined || amount === undefined) {
+            throw Error('Invalid address or amount');
+        }
+        const resp = sendTransaction(address, amount);
+        res.send(resp);
+    } catch (e) {
+        console.log(e.message);
+        res.status(400).send(e.message);
     }
 });
 
@@ -60,6 +81,22 @@ app.get('/balance', (req, res) => {
     res.send({ 'balance': balance });
 });
 
+app.get('/transactionPool', (req, res) => {
+    res.send(getTransactionPool());
+});
+
+app.get('/unspentTransactionOutputs', (req, res) => {
+    res.send(getUnspentTrOuts());
+});
+
+app.get('/myUnspentTransactionOutputs', (req, res) => {
+    res.send(getMyUnspentTrOuts());
+});
+
+app.get('/address', (req, res) => {
+    res.send({ 'address': getPublicFromWallet() });
+});
+
 app.get("/peers", (req, res) => {
     res.send(
         getSockets().map(
@@ -73,6 +110,15 @@ app.post("/addPeer", (req, res) => {
     res.send();
 })
 
+app.post("/addWallet", (req, res) => {
+    if (req.body.userName == null || typeof req.body.userName !== 'string') {
+        res.send('Invalid userName');
+        return;
+    }
+    initWallet(req.body.userName);
+    res.send({ 'address': getPublicFromWallet() });
+});
+
 app.listen(NODE_PORT, () => {
     console.log("Listening Node on port: " + NODE_PORT);
 })
@@ -83,4 +129,4 @@ if (initPeer) {
 }
 
 initP2PServer(P2P_PORT);
-initWallet();
+initWallet(userName);
