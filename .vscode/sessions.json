@@ -9,21 +9,21 @@
             [
                 {
                     "name": "node:1",
-                    "autoExecuteCommands": true,
+                    "autoExecuteCommands": false,
                     "commands": [
                         "NODE_PORT=3001 P2P_PORT=6001 npm start"
                     ]
                 },
                 {
                     "name": "node:2",
-                    "autoExecuteCommands": true,
+                    "autoExecuteCommands": false,
                     "commands": [
-                        "NODE_PORT=3002 P2P_PORT=6002 npm start"
+                        "NODE_PORT=3002 P2P_PORT=6002 PEER=ws://localhost:6001 USER_NAME=test npm start"
                     ]
                 },
                 {
                     "name": "node:3",
-                    "autoExecuteCommands": true,
+                    "autoExecuteCommands": false,
                     "commands": [
                         "NODE_PORT=3003 P2P_PORT=6003 npm start"
                     ]

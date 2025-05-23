@@ -5,7 +5,9 @@ import {
     getLastBlock,
     isValidBlockStructure,
     replaceChain,
+    addReceivedTransaction
 } from './blockchain.js';
+import { getTransactionPool } from './transactionPool.js';
 
 const sockets = [];
 
@@ -13,6 +15,8 @@ const MessageType = {
     QUERY_LAST: 0,
     QUERY_ALL: 1,
     RESPONSE_BLOCKCHAIN: 2,
+    QUERY_TRANSACTION_POOL: 3,
+    RESPONSE_TRANSACTION_POOL: 4
 };
 
 class Message {
@@ -48,6 +52,10 @@ function initConnection(ws) {
     initMessageHandler(ws);
     initErrorHandler(ws);
     send(ws, queryChainLengthMsg());
+
+    setTimeout(() => {
+        broadcast(queryTransactionPoolMsg());
+    }, 500);
 }
 
 function JSONParse(data) {
@@ -83,6 +91,24 @@ function initMessageHandler(ws) {
                 }
                 handleBlockchainResponse(receivedBlocks);
                 break;
+            case MessageType.QUERY_TRANSACTION_POOL:
+                send(ws, responseTransactionPoolMsg());
+                break;
+            case MessageType.RESPONSE_TRANSACTION_POOL:
+                const receivedTransactions = JSONParse(message.data);
+                if (receivedTransactions === null) {
+                    console.log('Invalid transaction received: %s', JSON.stringify(message.data));
+                    break;
+                }
+                receivedTransactions.forEach((transaction) => {
+                    try {
+                        addReceivedTransaction(transaction);
+                        broadCastTransactionPool();
+                    } catch (e) {
+                        console.log(e.message);
+                    }
+                });
+                break;
         }
     });
 }
@@ -109,6 +135,9 @@ function broadcast(message) {
 function broadcastLast() {
     broadcast(responseLastMsg());
 }
+function broadCastTransactionPool() {
+    broadcast(responseTransactionPoolMsg());
+};
 
 /////////// Tipos de respuestas
 function queryChainLengthMsg() {
@@ -117,6 +146,12 @@ function queryChainLengthMsg() {
 function queryAllMsg() {
     return new Message(MessageType.QUERY_ALL, null);
 }
+function queryTransactionPoolMsg() {
+    return {
+        type: MessageType.QUERY_TRANSACTION_POOL,
+        data: null
+    }
+};
 function responseChainMsg() {
     return {
         type: MessageType.RESPONSE_BLOCKCHAIN,
@@ -129,6 +164,12 @@ function responseLastMsg() {
         data: JSON.stringify([getLastBlock()]),
     };
 }
+function responseTransactionPoolMsg() {
+    return {
+        type: MessageType.RESPONSE_TRANSACTION_POOL,
+        data: JSON.stringify(getTransactionPool())
+    }
+};
 
 function handleBlockchainResponse(receivedBlocks) {
     if (receivedBlocks.length === 0) {
@@ -150,7 +191,7 @@ function handleBlockchainResponse(receivedBlocks) {
             ' Peer got: ' +
             lastBlockReceived.index
         );
-        
+
         if (thisLastBlock.hash === lastBlockReceived.previousHash) {
             if (addBlock(lastBlockReceived)) {
                 broadcast(responseLastMsg());
@@ -167,4 +208,4 @@ function handleBlockchainResponse(receivedBlocks) {
     }
 }
 
-export { connectToPeers, broadcastLast, initP2PServer, getSockets };
+export { connectToPeers, broadcastLast, broadCastTransactionPool, initP2PServer, getSockets };
