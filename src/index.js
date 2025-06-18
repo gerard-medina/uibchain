@@ -8,7 +8,8 @@ import { initWallet } from './wallet.js';
 const NODE_PORT = parseInt(process.env.NODE_PORT) || 3001;
 const P2P_PORT = parseInt(process.env.P2P_PORT) || 6001;
 const initPeer = process.env.PEER || null;
-const userName = process.env.USER_NAME || 'admin';
+const username = process.env.USER_NAME || 'admin';
+const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
 const app = express();
 
 app.use(express.json());
@@ -36,4 +37,4 @@ if (initPeer) {
 }
 
 initP2PServer(P2P_PORT);
-initWallet(userName);
+initWallet(username, adminPassword, 'admin');

@@ -11,7 +11,7 @@
                     "name": "node:1",
                     "autoExecuteCommands": false,
                     "commands": [
-                        "NODE_PORT=3001 P2P_PORT=6001 npm start"
+                        "npm start"
                     ]
                 },
                 {

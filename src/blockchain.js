@@ -41,8 +41,8 @@ function getBlockchain() {
 function getUnspentTrOuts() {
     return _.cloneDeep(unspentTrOuts);
 }
-function getMyUnspentTrOuts() {
-    return findUnspentTrOuts(getPublicFromWallet(), getUnspentTrOuts());
+function getMyUnspentTrOuts(username) {
+    return findUnspentTrOuts(getPublicFromWallet(username), getUnspentTrOuts());
 }
 function getLastBlock() {
     return blockchain[blockchain.length - 1];
@@ -74,8 +74,8 @@ function getNewDifficulty(lastBlock, auxBlockchain) {
         return lastIntervalBlock.difficulty;
     }
 }
-function getAccountBalance() {
-    return getBalance(getPublicFromWallet(), getUnspentTrOuts());
+function getAccountBalance(username) {
+    return getBalance(getPublicFromWallet(username), getUnspentTrOuts());
 };
 
 /////////// SETTERS
@@ -83,8 +83,8 @@ function setUnspentTrOuts(newUnspentTrOuts) {
     unspentTrOuts = newUnspentTrOuts;
 };
 
-function sendTransaction(address, amount) {
-    const tr = createTransaction(address, amount, getPrivateFromWallet(), getUnspentTrOuts(), getTransactionPool());
+function sendTransaction(username, address, amount) {
+    const tr = createTransaction(address, amount, getPrivateFromWallet(username), getUnspentTrOuts(), getTransactionPool());
     addToTransactionPool(tr, getUnspentTrOuts());
     broadCastTransactionPool();
     return tr;
@@ -112,21 +112,21 @@ function generateRawNextBlock(blockData) {
     }
 }
 
-function generateNextBlockWithTransaction(receiverAddress, amount) {
+function generateNextBlockWithTransaction(username, receiverAddress, amount) {
     if (!isValidAddress(receiverAddress)) {
         throw Error('Invalid address');
     }
     if (typeof amount !== 'number') {
         throw Error('Invalid amount');
     }
-    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
-    const tr = createTransaction(receiverAddress, amount, getPrivateFromWallet(), getUnspentTrOuts(), getTransactionPool());
+    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(username), getLastBlock().index + 1);
+    const tr = createTransaction(receiverAddress, amount, getPrivateFromWallet(username), getUnspentTrOuts(), getTransactionPool());
     const blockData = [coinbaseTr, tr];
     return generateRawNextBlock(blockData);
 };
 
-function generateNextBlock() {
-    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(), getLastBlock().index + 1);
+function generateNextBlock(username) {
+    const coinbaseTr = getCoinbaseTransaction(getPublicFromWallet(username), getLastBlock().index + 1);
     const blockData = [coinbaseTr].concat(getTransactionPool());
     return generateRawNextBlock(blockData);
 };
