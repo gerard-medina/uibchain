@@ -4,15 +4,31 @@ import _ from 'lodash';
 import { getPublicKey, getTransactionId, signTrIn, Transaction, TrIn, TrOut } from './transaction.js';
 
 const ec = new ecdsa.ec('secp256k1');
-const walletPath = 'wallets/';
+export const walletPath = 'wallets/';
 
-function getPrivateFromWallet() {
-    const wallet = JSON.parse(readFileSync(walletPath + (process.env.USER_NAME || 'admin') + '.json', 'utf8'));
+function checkPassword(username, password) {
+    if (!existsSync(walletPath + username + '.json')) {
+        return false;
+    }
+    const wallet = JSON.parse(readFileSync(walletPath + username + '.json', 'utf8'));
+    return wallet.password === password;
+}
+
+function getRole(username) {
+    if (!existsSync(walletPath + username + '.json')) {
+        return null;
+    }
+    const wallet = JSON.parse(readFileSync(walletPath + username + '.json', 'utf8'));
+    return wallet.role;
+}
+
+function getPrivateFromWallet(username) {
+    const wallet = JSON.parse(readFileSync(walletPath + username + '.json', 'utf8'));
     return wallet.private_key;
 };
 
-function getPublicFromWallet() {
-    const wallet = JSON.parse(readFileSync(walletPath + (process.env.USER_NAME || 'admin') + '.json', 'utf8'));
+function getPublicFromWallet(username) {
+    const wallet = JSON.parse(readFileSync(walletPath + username + '.json', 'utf8'));
     return wallet.public_key;
 };
 
@@ -22,14 +38,19 @@ function generatePrivateKey() {
     return privateKey.toString(16);
 };
 
-function initWallet(userName) {
-    if (existsSync(walletPath + userName + '.json')) {
+function initWallet(username, password, role) {
+    if (existsSync(walletPath + username + '.json')) {
         return;
     }
     const newPrivateKey = generatePrivateKey();
     const public_key = getPublicKey(newPrivateKey);
-    const keys = JSON.stringify({ public_key: public_key, private_key: newPrivateKey });
-    writeFileSync(walletPath + userName + '.json', keys);
+    const keys = JSON.stringify({
+        public_key: public_key,
+        private_key: newPrivateKey,
+        password: password,
+        role: role
+    });
+    writeFileSync(walletPath + username + '.json', keys);
     console.log('New wallet created, public key: ' + public_key);
 };
 
@@ -117,10 +138,12 @@ function createTransaction(receiverAddress, amount, privateKey, unspentTrOuts, p
 
 export {
     createTransaction,
+    getRole,
     getPublicFromWallet,
     getPrivateFromWallet,
     getBalance,
     generatePrivateKey,
     initWallet,
-    findUnspentTrOuts
+    findUnspentTrOuts,
+    checkPassword
 };
