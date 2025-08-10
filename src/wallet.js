@@ -133,6 +133,8 @@ function createTransaction(receiverAddress, amount, privateKey, unspentTrOuts, p
         return trIn;
     });
 
+    tr.senderAddress = myAddress;
+
     return tr;
 };
 
