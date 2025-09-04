@@ -55,10 +55,11 @@ function initWallet(username, password, role) {
 };
 
 function getBalance(address, unspentTrOuts) {
-    return _(findUnspentTrOuts(address, unspentTrOuts))
+    const total = _(findUnspentTrOuts(address, unspentTrOuts))
         .filter((unspentTrOut) => unspentTrOut.address === address)
         .map((unspentTrOut) => unspentTrOut.amount)
         .sum();
+    return _.round(total, 2);
 };
 
 function findUnspentTrOuts(address, unspentTrOuts) {

@@ -17,19 +17,28 @@ class Block {
     }
 }
 
+const genesisTransaction = {
+    'trIns': [{'signature': '', 'trOutId': '', 'trOutIndex': 0}],
+    'trOuts': [{
+        'address': '04ac0224fb311133f41bdcbb79de49b108e6152ce15936e0e84c4d1780bbefd24308a1af9616567290fa9ccc5bab16597ebb08affbfc88689012f2fa3b1ab4c51e',
+        'amount': 50
+    }],
+    'id': '8e1ac3a7ec58aa5b0e64c23c0e41b091131b39f4a8acf75621703e62e56f48df'
+};
+
 const genesisBlock = new Block(
     0,
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     '',
     1737832682,
-    [],
+    [genesisTransaction],
     0,
     0
 );
 
 let blockchain = [genesisBlock];
 
-let unspentTrOuts = [];
+let unspentTrOuts = [processTransactions(blockchain[0].data, [], 0)[0]];
 
 const TIME_DIFFICULTY = 10;
 const BLOCKS_INTERVAL = 10;
