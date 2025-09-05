@@ -32,6 +32,7 @@ class Transaction {
     id;
     trIns = [];
     trOuts = [];
+    senderAddress;
 }
 
 function getTransactionId(transaction) {
@@ -302,6 +303,10 @@ function isValidTransactionStructure(transaction) {
     if (!transaction.trOuts
         .map(isValidTrOutStructure)
         .reduce((a, b) => (a && b), true)) {
+        return false;
+    }
+
+    if (typeof transaction.senderAddress !== 'string') {
         return false;
     }
     return true;

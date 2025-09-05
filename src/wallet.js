@@ -55,10 +55,11 @@ function initWallet(username, password, role) {
 };
 
 function getBalance(address, unspentTrOuts) {
-    return _(findUnspentTrOuts(address, unspentTrOuts))
+    const total = _(findUnspentTrOuts(address, unspentTrOuts))
         .filter((unspentTrOut) => unspentTrOut.address === address)
         .map((unspentTrOut) => unspentTrOut.amount)
         .sum();
+    return _.round(total, 2);
 };
 
 function findUnspentTrOuts(address, unspentTrOuts) {
@@ -132,6 +133,8 @@ function createTransaction(receiverAddress, amount, privateKey, unspentTrOuts, p
         trIn.signature = signTrIn(tr, index, privateKey, unspentTrOuts);
         return trIn;
     });
+
+    tr.senderAddress = myAddress;
 
     return tr;
 };
